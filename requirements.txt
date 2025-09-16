@@ -1,0 +1,33 @@
+# Nutanix CDP Strict Rack Awareness Test Suite Requirements
+
+# Core dependencies
+requests>=2.28.0
+urllib3>=1.26.0
+
+# For enhanced HTTP handling
+certifi>=2022.12.7
+
+# For data processing and analysis
+dataclasses>=0.6; python_version<"3.7"
+
+# For concurrent testing
+concurrent.futures>=3.1.1; python_version<"3.2"
+
+# For logging enhancements
+coloredlogs>=15.0
+
+# For configuration management
+pyyaml>=6.0
+
+# For test result export
+openpyxl>=3.0.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+
+# Documentation
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0

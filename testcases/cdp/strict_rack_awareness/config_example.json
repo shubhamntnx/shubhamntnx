@@ -1,0 +1,33 @@
+{
+  "_comment": "Example configuration for Strict Rack Awareness Test Suite",
+  "cluster": {
+    "ip": "192.168.1.100",
+    "username": "admin",
+    "password": "nutanix/4u",
+    "port": 9440,
+    "use_https": true
+  },
+  "parallel_execution": false,
+  "max_parallel_tests": 2,
+  "default_timeout_minutes": 45,
+  "log_level": "INFO",
+  "log_file_path": "/var/log/nutanix/strict_ra_tests.log",
+  "min_racks_required": 3,
+  "rack_failure_simulation": true,
+  "api_timeout_seconds": 300,
+  "api_retry_count": 3,
+  "api_retry_delay": 10,
+  "test_data_path": "/tmp/nutanix_test_data",
+  "cleanup_on_failure": true,
+  "inter_test_delay_seconds": 45,
+  "extra_config": {
+    "strict_ra_wait_timeout": 900,
+    "ft_upgrade_timeout": 2700,
+    "rack_recovery_timeout": 1200,
+    "container_creation_timeout": 180,
+    "cluster_stabilization_timeout": 600,
+    "enable_performance_metrics": true,
+    "enable_detailed_logging": false,
+    "test_environment": "development"
+  }
+}
