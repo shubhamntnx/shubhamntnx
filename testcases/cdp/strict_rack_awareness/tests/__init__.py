@@ -1,0 +1,3 @@
+"""
+Strict Rack Awareness Tests
+"""

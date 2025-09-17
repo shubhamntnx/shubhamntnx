@@ -1,0 +1,27 @@
+{
+  "cluster": {
+    "ip": "10.1.1.100",
+    "username": "admin",
+    "password": "admin123",
+    "port": 9440,
+    "use_https": true
+  },
+  "parallel_execution": false,
+  "max_parallel_tests": 3,
+  "default_timeout_minutes": 60,
+  "log_level": "INFO",
+  "log_file_path": "/tmp/strict_ra_tests.log",
+  "min_racks_required": 3,
+  "rack_failure_simulation": true,
+  "api_timeout_seconds": 300,
+  "api_retry_count": 3,
+  "api_retry_delay": 5,
+  "test_data_path": "/tmp/test_data",
+  "cleanup_on_failure": true,
+  "inter_test_delay_seconds": 30,
+  "extra_config": {
+    "strict_ra_wait_timeout": 600,
+    "ft_upgrade_timeout": 1800,
+    "rack_recovery_timeout": 900
+  }
+}

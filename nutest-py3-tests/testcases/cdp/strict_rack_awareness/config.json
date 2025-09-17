@@ -1,0 +1,145 @@
+{
+  "cdp.strict_rack_awareness.test_create_cluster_strict_rack_awareness.CreateClusterStrictRackAwareness": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin",
+    "cluster_password": "admin123",
+    "cluster_port": 9440,
+    "use_https": true,
+    "min_racks_required": 3,
+    "rack_failure_simulation_enabled": true,
+    "test_container_prefix": "strict_ra_test",
+    "cleanup_on_failure": true,
+    "api_timeout_seconds": 300,
+    "ft_upgrade_timeout_minutes": 30,
+    "rack_recovery_timeout_minutes": 15
+  },
+  "cdp.strict_rack_awareness.test_create_cluster_strict_rack_awareness.CreateClusterStrictRackAwareness.test_create_enable_disable_strict_ra_cluster": {
+    "test_description": "Test creating cluster with strict rack awareness and toggle enable/disable",
+    "test_timeout_minutes": 45,
+    "expected_result": "Cluster should successfully enable/disable strict RA",
+    "test_containers_count": 3,
+    "replication_factor": 2
+  },
+  "cdp.strict_rack_awareness.test_transition_workflows.TransitionWorkflows": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin", 
+    "cluster_password": "admin123",
+    "transition_wait_timeout": 600,
+    "rpp_update_timeout": 300,
+    "test_container_prefix": "transition_test"
+  },
+  "cdp.strict_rack_awareness.test_transition_workflows.TransitionWorkflows.test_transition_best_effort_to_strict_ra": {
+    "test_description": "Transition from best-effort to strict RA with all preconditions met",
+    "test_timeout_minutes": 45,
+    "expected_result": "Strict RA is enabled and RPPs updated to strict versions",
+    "validate_prerequisites": true,
+    "validate_rpp_updates": true,
+    "test_containers_count": 2
+  },
+  "cdp.strict_rack_awareness.test_transition_workflows.TransitionWorkflows.test_transition_strict_ra_to_best_effort": {
+    "test_description": "Disable strict RA and revert to best-effort placement",
+    "test_timeout_minutes": 30,
+    "expected_result": "RPPs revert to best-effort and containers reflect updated policy",
+    "validate_rpp_reversion": true,
+    "test_new_container_creation": true
+  },
+  "cdp.strict_rack_awareness.test_ft_upgrade_workflows.FTUpgradeWorkflows": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin",
+    "cluster_password": "admin123", 
+    "ft_upgrade_timeout_minutes": 60,
+    "cluster_stabilization_timeout": 900,
+    "metadata_ensemble_validation": true
+  },
+  "cdp.strict_rack_awareness.test_ft_upgrade_workflows.FTUpgradeWorkflows.test_ft1_to_ft2_with_strict_ra": {
+    "test_description": "Upgrade cluster from FT1 to FT2 with strict RA enabled",
+    "test_timeout_minutes": 90,
+    "expected_result": "Cluster transitions to FT2 with kRF3_Strict and quorum maintained",
+    "initial_ft_level": 1,
+    "target_ft_level": 2,
+    "expected_rpp": "kRF3_Strict",
+    "validate_metadata_ensemble": true,
+    "validate_data_rebalance": true
+  },
+  "cdp.strict_rack_awareness.test_api_validation.APIValidation": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin",
+    "cluster_password": "admin123",
+    "api_retry_count": 3,
+    "api_retry_delay": 5,
+    "test_invalid_values": true,
+    "test_backward_compatibility": true
+  },
+  "cdp.strict_rack_awareness.test_api_validation.APIValidation.test_validate_cluster_config_apis": {
+    "test_description": "Validate GET, POST, PUT cluster APIs for strict RA field",
+    "test_timeout_minutes": 20,
+    "expected_result": "Field is present, accepted, and backward compatible",
+    "test_get_api": true,
+    "test_put_api": true,
+    "test_post_api": true,
+    "test_field_validation": true,
+    "test_edge_cases": true
+  },
+  "cdp.strict_rack_awareness.test_rack_failure_simulation.RackFailureSimulation": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin",
+    "cluster_password": "admin123",
+    "rack_failure_simulation_enabled": true,
+    "failure_detection_timeout": 120,
+    "recovery_timeout_minutes": 15,
+    "data_availability_check": true
+  },
+  "cdp.strict_rack_awareness.test_rack_failure_simulation.RackFailureSimulation.test_simulate_rack_failure_and_validate_quorum": {
+    "test_description": "Simulate rack failure and validate metadata quorum and data availability",
+    "test_timeout_minutes": 60,
+    "expected_result": "Quorum is maintained within FT limits. Cluster remains operational",
+    "test_single_rack_failure": true,
+    "test_multiple_rack_failure": true,
+    "test_recovery_scenarios": true,
+    "validate_quorum_maintenance": true,
+    "validate_data_availability": true,
+    "test_containers_count": 3
+  },
+  "cdp.strict_rack_awareness.test_skewed_cluster_behavior.SkewedClusterBehavior": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin",
+    "cluster_password": "admin123",
+    "skew_ratio_threshold": 2.0,
+    "resource_utilization_monitoring": true,
+    "alert_validation": true
+  },
+  "cdp.strict_rack_awareness.test_skewed_cluster_behavior.SkewedClusterBehavior.test_validate_skewed_cluster_behavior": {
+    "test_description": "Validate strict RA behavior in skewed cluster with uneven rack resources",
+    "test_timeout_minutes": 75,
+    "expected_result": "Placement honors rack boundaries. Alerts raised if FT is compromised",
+    "create_skewed_scenario": true,
+    "test_container_creation": true,
+    "validate_placement_behavior": true,
+    "test_resource_utilization": true,
+    "simulate_failures_in_skewed_cluster": true,
+    "validate_alert_generation": true,
+    "test_recovery_behavior": true
+  },
+  "cdp.strict_rack_awareness.test_storage_policy_enforcement.StoragePolicyEnforcement": {
+    "cluster_ip": "10.1.1.100",
+    "cluster_username": "admin", 
+    "cluster_password": "admin123",
+    "policy_violation_testing": true,
+    "vdisk_policy_inheritance": true,
+    "invalid_override_blocking": true
+  },
+  "cdp.strict_rack_awareness.test_storage_policy_enforcement.StoragePolicyEnforcement.test_validate_storage_policy_enforcement": {
+    "test_description": "Ensure storage policies enforce strict RA rules",
+    "test_timeout_minutes": 45,
+    "expected_result": "Placement fails if rules are violated. Overrides are blocked or warned",
+    "test_valid_container_creation": true,
+    "test_invalid_policy_overrides": true,
+    "test_replication_factor_enforcement": true,
+    "test_vdisk_policy_enforcement": true,
+    "test_policy_inheritance": true,
+    "test_policy_violation_handling": true,
+    "test_policy_enforcement_during_failures": true,
+    "test_containers_count": 3,
+    "vdisks_per_container": 2
+  }
+}
