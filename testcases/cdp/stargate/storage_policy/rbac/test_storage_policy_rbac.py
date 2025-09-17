@@ -1,334 +1,368 @@
 """
-Storage Policy RBAC Test Cases
+Copyright (c) 2022 Nutanix Inc. All rights reserved.
+Author: shubham.shrivastava@nutanix.com
 
-This module contains test cases for verifying Role-Based Access Control (RBAC) 
-for storage policies in Prism Central UI.
+This file contains test methods to perform Storage Policy CRUD for SP-GRBAC
+FEAT.
 """
+#pylint: disable=unused-variable, too-many-locals, too-many-statements
+#pylint: disable=too-many-branches
 
-import pytest
-import logging
 import os
-import json
-from typing import Dict, Any, List
-import sys
+import pprint
+import random
+from random import sample
+from framework.interfaces.consts import PRISM_PASSWORD_WITHOUT_PAM
+from framework.lib.nulog import INFO, STEP
+from framework.lib.test.nos_test import NOSTest
 
-# Add the workflows directory to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../../workflows'))
-
-from workflows.cdp.test_orchestrator.storage_policy_utils.storage_policy_grbac_helper import StoragePolicyRBACHelper
-
-logger = logging.getLogger(__name__)
-
-
-class TestStoragePolicyRBAC:
-    """Test class for Storage Policy RBAC verification."""
-    
-    @pytest.fixture(scope="class")
-    def rbac_helper(self):
-        """Fixture to create and setup RBAC helper."""
-        helper = StoragePolicyRBACHelper()
-        helper.setup_driver(headless=True)  # Use headless mode for CI/CD
-        yield helper
-        helper.cleanup()
-    
-    @pytest.fixture(scope="class")
-    def user_credentials(self):
-        """
-        Fixture to provide user credentials.
-        
-        Note: In a real environment, these should be loaded from a secure credential store
-        or environment variables. For this example, using placeholder passwords.
-        """
-        return {
-            'vo_user2@qa.nutanix.com': 'password123',
-            'vo_user4@qa.nutanix.com': 'password123',
-            'ca_user21@qa.nutanix.com': 'password123',
-            'vo_user3@qa.nutanix.com': 'password123',
-            'ca_user12@qa.nutanix.com': 'password123',
-            'ca_user11@qa.nutanix.com': 'password123',
-            'ca_user13@qa.nutanix.com': 'password123',
-            'ca_user14@qa.nutanix.com': 'password123',
-            'cdp_user2@qa.nutanix.com': 'password123',
-            'cdp_user1@qa.nutanix.com': 'password123',
-            'cdp_user3@qa.nutanix.com': 'password123',
-            'cdp_user4@qa.nutanix.com': 'password123',
-            'ca_user19@qa.nutanix.com': 'password123',
-            'ca_user17@qa.nutanix.com': 'password123',
-            'ca_user20@qa.nutanix.com': 'password123',
-            'ca_user18@qa.nutanix.com': 'password123',
-            'vo_user7@qa.nutanix.com': 'password123',
-            'vo_user8@qa.nutanix.com': 'password123',
-            'vo_user9@qa.nutanix.com': 'password123',
-            'ca_user1@qa.nutanix.com': 'password123',
-            'ca_user3@qa.nutanix.com': 'password123',
-            'ca_user2@qa.nutanix.com': 'password123',
-            'ca_user4@qa.nutanix.com': 'password123',
-            'ca_user16@qa.nutanix.com': 'password123'
-        }
-    
-    def test_rbac_helper_initialization(self, rbac_helper):
-        """Test that RBAC helper initializes correctly."""
-        assert rbac_helper is not None
-        assert rbac_helper.prism_central_url == "https://10.46.100.3:9440/"
-        assert rbac_helper.user_entities is not None
-        assert len(rbac_helper.user_entities) > 0
-        logger.info("RBAC helper initialization test passed")
-    
-    def test_user_entities_data_structure(self, rbac_helper):
-        """Test that user entities data has correct structure."""
-        for username, user_data in rbac_helper.user_entities.items():
-            assert '@qa.nutanix.com' in username, f"Invalid username format: {username}"
-            assert 'category' in user_data, f"Missing 'category' for user {username}"
-            assert 'sps' in user_data, f"Missing 'sps' for user {username}"
-            assert isinstance(user_data['category'], list), f"'category' should be list for user {username}"
-            assert isinstance(user_data['sps'], list), f"'sps' should be list for user {username}"
-        
-        logger.info(f"User entities data structure test passed for {len(rbac_helper.user_entities)} users")
-    
-    @pytest.mark.parametrize("username", [
-        'vo_user2@qa.nutanix.com',
-        'ca_user21@qa.nutanix.com',
-        'cdp_user1@qa.nutanix.com'
-    ])
-    def test_individual_user_rbac(self, rbac_helper, user_credentials, username):
-        """Test RBAC for individual users."""
-        if username not in user_credentials:
-            pytest.skip(f"No credentials available for {username}")
-        
-        # Login as user
-        login_success = rbac_helper.login_to_prism_central(username, user_credentials[username])
-        assert login_success, f"Login failed for user {username}"
-        
-        # Navigate to storage policies
-        nav_success = rbac_helper.navigate_to_storage_policies()
-        assert nav_success, f"Navigation to storage policies failed for user {username}"
-        
-        # Verify RBAC permissions
-        result = rbac_helper.verify_user_rbac_permissions(username)
-        
-        # Log results for debugging
-        logger.info(f"RBAC verification result for {username}: {result}")
-        
-        # Assertions
-        assert result['username'] == username
-        assert isinstance(result['expected_sps'], list)
-        assert isinstance(result['visible_sps'], list)
-        assert isinstance(result['expected_categories'], list)
-        
-        # The RBAC verification might fail due to UI changes or test environment issues
-        # Log the errors for analysis rather than failing the test
-        if not result['rbac_verified']:
-            logger.warning(f"RBAC verification failed for {username}: {result['errors']}")
-        
-        # Logout
-        rbac_helper.logout()
-    
-    def test_users_with_all_category_access(self, rbac_helper, user_credentials):
-        """Test users who have 'ALL' category access."""
-        all_access_users = []
-        for username, user_data in rbac_helper.user_entities.items():
-            if 'ALL' in user_data['category']:
-                all_access_users.append(username)
-        
-        assert len(all_access_users) > 0, "No users found with 'ALL' category access"
-        logger.info(f"Found {len(all_access_users)} users with 'ALL' category access")
-        
-        # Test a sample of users with ALL access
-        sample_users = all_access_users[:3]  # Test first 3 users
-        
-        for username in sample_users:
-            if username not in user_credentials:
-                continue
-                
-            logger.info(f"Testing ALL access user: {username}")
-            
-            # Login and verify they can see more storage policies
-            login_success = rbac_helper.login_to_prism_central(username, user_credentials[username])
-            if login_success:
-                nav_success = rbac_helper.navigate_to_storage_policies()
-                if nav_success:
-                    visible_policies = rbac_helper.get_visible_storage_policies()
-                    logger.info(f"User {username} can see {len(visible_policies)} storage policies")
-                    
-                    # Users with ALL access should typically see more policies
-                    # This is a soft assertion - log for analysis
-                    if len(visible_policies) == 0:
-                        logger.warning(f"User {username} with ALL access sees no storage policies")
-                
-                rbac_helper.logout()
-    
-    def test_users_with_limited_category_access(self, rbac_helper, user_credentials):
-        """Test users who have limited category access (no 'ALL')."""
-        limited_access_users = []
-        for username, user_data in rbac_helper.user_entities.items():
-            if 'ALL' not in user_data['category']:
-                limited_access_users.append(username)
-        
-        assert len(limited_access_users) > 0, "No users found with limited category access"
-        logger.info(f"Found {len(limited_access_users)} users with limited category access")
-        
-        # Test a sample of users with limited access
-        sample_users = limited_access_users[:3]  # Test first 3 users
-        
-        for username in sample_users:
-            if username not in user_credentials:
-                continue
-                
-            logger.info(f"Testing limited access user: {username}")
-            
-            # Login and verify they see limited storage policies
-            login_success = rbac_helper.login_to_prism_central(username, user_credentials[username])
-            if login_success:
-                nav_success = rbac_helper.navigate_to_storage_policies()
-                if nav_success:
-                    visible_policies = rbac_helper.get_visible_storage_policies()
-                    expected_policies = rbac_helper.user_entities[username]['sps']
-                    
-                    logger.info(f"User {username} can see {len(visible_policies)} storage policies")
-                    logger.info(f"Expected {len(expected_policies)} storage policies")
-                    
-                    # This is a soft check - actual UI might show different results
-                    # Log for analysis rather than hard assertion
-                    if len(visible_policies) > len(expected_policies):
-                        logger.warning(f"User {username} sees more policies than expected")
-                
-                rbac_helper.logout()
-    
-    @pytest.mark.slow
-    def test_all_users_rbac_batch(self, rbac_helper, user_credentials):
-        """
-        Comprehensive test for all users RBAC.
-        
-        This test is marked as slow since it tests all users.
-        Run with: pytest -m slow
-        """
-        results = rbac_helper.verify_all_users_rbac(user_credentials)
-        
-        # Generate and save report
-        report_content = rbac_helper.generate_report(results, "rbac_verification_report.txt")
-        logger.info("RBAC verification report generated")
-        
-        # Assertions on results
-        assert results['total_users'] > 0, "No users were tested"
-        assert 'user_results' in results
-        assert 'summary' in results
-        
-        # Log summary for analysis
-        logger.info(f"RBAC Batch Test Summary: {results['summary']}")
-        
-        # Soft assertion - log failures for analysis
-        if results['failed_users'] > 0:
-            logger.warning(f"{results['failed_users']} users failed RBAC verification")
-            for username, user_result in results['user_results'].items():
-                if not user_result.get('rbac_verified', False):
-                    logger.warning(f"Failed user {username}: {user_result.get('errors', [])}")
-    
-    def test_storage_policy_visibility_patterns(self, rbac_helper):
-        """Test patterns in storage policy visibility across users."""
-        # Analyze patterns in the user entities data
-        all_sps = set()
-        all_categories = set()
-        
-        for user_data in rbac_helper.user_entities.values():
-            all_sps.update(user_data['sps'])
-            all_categories.update(user_data['category'])
-        
-        logger.info(f"Total unique storage policies: {len(all_sps)}")
-        logger.info(f"Total unique categories: {len(all_categories)}")
-        
-        # Check for common patterns
-        sp_patterns = {
-            'default_storage': [sp for sp in all_sps if 'Default' in sp],
-            'deleted_sps': [sp for sp in all_sps if 'Del_' in sp or 'DEL_' in sp],
-            'numbered_sps': [sp for sp in all_sps if any(char.isdigit() for char in sp)]
-        }
-        
-        for pattern_name, pattern_sps in sp_patterns.items():
-            logger.info(f"{pattern_name}: {len(pattern_sps)} policies")
-        
-        # Basic assertions
-        assert len(all_sps) > 0, "No storage policies found in user entities"
-        assert len(all_categories) > 0, "No categories found in user entities"
-        assert 'ALL' in all_categories, "'ALL' category should exist"
-    
-    def test_rbac_helper_error_handling(self, rbac_helper):
-        """Test error handling in RBAC helper methods."""
-        # Test with invalid user
-        result = rbac_helper.verify_user_rbac_permissions("invalid_user@test.com")
-        assert not result['rbac_verified']
-        assert len(result['errors']) > 0
-        assert 'not found in entities data' in result['errors'][0]
-        
-        # Test login with invalid credentials (without actually attempting login)
-        # This is a unit test for the method structure
-        assert hasattr(rbac_helper, 'login_to_prism_central')
-        assert hasattr(rbac_helper, 'navigate_to_storage_policies')
-        assert hasattr(rbac_helper, 'get_visible_storage_policies')
-        assert hasattr(rbac_helper, 'logout')
-        
-        logger.info("Error handling tests passed")
+from workflows.iam.sdk.v4.acp.acp import ACP
+from workflows.cdp.stargate.qos.setup_workflow import SetupWorkflow
+from workflows.cdp.common.generic import generate_html_report
+from workflows.cdp.test_orchestrator.storage_policy_utils.\
+  storage_policy_grbac_helper import StoragePolicyGRBACHelper
+from workflows.manageability.ui.cdp.ui_workflows.pc.prism_central import \
+  PrismCentral
+from workflows.workload_orchestrator.lib.ops_tracker import OpsTracker
+from workflows.workload_orchestrator.lib.wlo_helpers import (
+  populate_testcase_ops)
 
 
-class TestStoragePolicyRBACIntegration:
-    """Integration tests for Storage Policy RBAC."""
-    
-    @pytest.fixture(scope="class")
-    def rbac_helper(self):
-        """Fixture for integration tests with real browser."""
-        helper = StoragePolicyRBACHelper()
-        helper.setup_driver(headless=False)  # Use visible browser for integration tests
-        yield helper
-        helper.cleanup()
-    
-    @pytest.mark.integration
-    def test_prism_central_accessibility(self, rbac_helper):
-        """Test that Prism Central is accessible."""
-        try:
-            rbac_helper.driver.get(rbac_helper.prism_central_url)
-            # Check if login page loads
-            login_elements = rbac_helper.driver.find_elements_by_xpath("//input[@id='username']")
-            assert len(login_elements) > 0, "Login page not accessible"
-            logger.info("Prism Central accessibility test passed")
-        except Exception as e:
-            pytest.skip(f"Prism Central not accessible: {str(e)}")
-    
-    @pytest.mark.integration
-    def test_ui_elements_presence(self, rbac_helper):
-        """Test presence of expected UI elements."""
-        try:
-            rbac_helper.driver.get(rbac_helper.prism_central_url)
-            
-            # Check for common UI elements
-            expected_elements = [
-                "//input[@id='username']",
-                "//input[@id='password']",
-                "//button[@type='submit']"
-            ]
-            
-            for element_xpath in expected_elements:
-                elements = rbac_helper.driver.find_elements_by_xpath(element_xpath)
-                assert len(elements) > 0, f"Expected UI element not found: {element_xpath}"
-            
-            logger.info("UI elements presence test passed")
-        except Exception as e:
-            pytest.skip(f"UI elements test failed: {str(e)}")
+class TestStoragePolicyRBAC(NOSTest):
+  """
+  GRBAC test for Storage Policies
+  """
+  def class_setup(self):
+    """ Class setup to instantiate other helper classes """
+    self.sw = SetupWorkflow(self)
+    self.sw.setup_infra()
+    self.sw.prepare_test_setup(self.test_args)
+    self.sp_rbac_helper = StoragePolicyGRBACHelper(self, self.test_args)
+    self.selenium = self.get_resources_by_type(self.SELENIUM_VM)[0]
 
+  def setup(self):
+    """
+    Prepare the GRBAC setup.
+    """
+    STEP("Preparing the setup for SP RBAC")
+    config_file = self.test_args.get("user_role_config_file")
+    # Checking if we have user_type override for test.
+    if self.test_args.get("user_type"):
+      self.sp_rbac_helper.grbac_helper.global_user_type = \
+        self.test_args.get("user_type")
+    else:
+      self.sp_rbac_helper.grbac_helper.global_user_type = "RANDOM"
+    INFO("Will be creating {} type users.".format(
+      self.sp_rbac_helper.grbac_helper.global_user_type))
 
-if __name__ == "__main__":
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler('storage_policy_rbac_tests.log')
-        ]
-    )
-    
-    # Run tests
-    pytest.main([
-        __file__,
-        "-v",
-        "--tb=short",
-        "--capture=no"
-    ])
+    self.sp_rbac_helper.grbac_helper.everything_rbac(config_file)
+    self.sp_rbac_helper.associate_categories_to_sps()
+    self.pc_clusters = self.get_resources_by_type(self.PRISM_CENTRAL)
+    self.test_result = []
+    self.headers = ("Op ID.", "Operation", "User", "Storage Policy", "Result",
+                    "Message")
+    self.ops_tracker = OpsTracker()
+    for user in (
+        self.sp_rbac_helper.grbac_helper.get_users_group(user_type=None)):
+      if user in self.sp_rbac_helper.grbac_helper.user_role_mapping:
+        for operation in self.test_args.get("test_operations"):
+          self.ops_tracker.add_ops_total(1,
+                                         caller_name=f"{user.name}_{operation}")
+
+    if self.test_args["ui_test"]:
+      # UI setup.
+      self.test_args['selenium_server'] = self.selenium.ip
+      self.pc_ip = self.pc_clusters[0].svm_ips[0]
+
+  def test_storage_policy_grbac(self):
+    """
+      Metadata:
+        Summary: This test performs storage_policy/list operation on all the
+             users with different roles and scoped user.
+        Priority: $P0
+        Requirements: [FEAT-13109, FEAT-14586, FEAT-16871]
+        Components: [$STARGATE]
+        Services: [$PC_TAR]
+        Tags: [$AHV]
+        Steps:
+          - For a users, perform storage_policy/list operation
+          - ExpectedResults
+          - View permission User should be able to view scoped SPs
+          - Edit permission User should be able to edit scoped SPs
+          - Delete permission User should be able to delete scoped SPs
+          - Create permission User should be able to create SPs
+          - DSP should not get updated and deleted even with permissions
+          - With permission, self owned SP should be operable for the user
+
+    """
+    all_user_result = []
+    op_id = 0
+    # DSP is not allowed to be updated, deleted, or updated. We are testing DSP
+    # Ops as separately. Setting dsp_ext_id once here.
+    dsp_ext_id = [sp_ext_id for sp_ext_id, sp_name in
+                  self.sp_rbac_helper.all_storage_policies.items() if sp_name
+                  == "Default-Storage"][0]
+    for user in (
+        self.sp_rbac_helper.grbac_helper.get_users_group(user_type=None)):
+      user = user.name
+      # Useful for prefilled setup with groups too with multiple LDAP users.
+      if user not in self.sp_rbac_helper.grbac_helper.user_role_mapping:
+        INFO("User '{}' not assigned any role. Skipping.".format(user))
+        continue
+
+      user_permissions = (
+        self.sp_rbac_helper.grbac_helper.get_user_permissions(user))
+      user_permissions = "{}:{}".format(user, user_permissions)
+      STEP(f"Running tests for user: {user} with {user_permissions}")
+      self.pc_dashboard = None
+      if self.test_args["ui_test"]:
+        self.test_args["pc_user"] = user
+        self.test_args["pc_passwd"] = PRISM_PASSWORD_WITHOUT_PAM
+        self.pc_dashboard = PrismCentral(self.test_args, pc_ip=self.pc_ip)
+
+      # LIST
+      op = "LIST"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        result, msg = (
+          self.sp_rbac_helper.verify_sp_list(user, PRISM_PASSWORD_WITHOUT_PAM,
+                                             pc_dashboard=self.pc_dashboard))
+        STEP(f"{user} {op} with {user_permissions} TEST"
+             f" {'PASSED' if result else 'FAILED'}!!")
+        self.test_result.append((op_id, op, user_permissions, "",
+                                 "PASSED" if result else "FAILED", msg))
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # LIST ODATA
+      op = "LIST_ODATA"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        result, msg = (
+          self.sp_rbac_helper.verify_sp_list(user, PRISM_PASSWORD_WITHOUT_PAM,
+                                             self.test_args.get("odata_list")))
+        STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+        self.test_result.append((op_id, op, user_permissions, "",
+                                 "PASSED" if result else "FAILED", msg))
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # READ
+      op = "READ"
+      if op in self.test_args.get("test_operations"):
+        each_sp_results = []
+        sps = self.sp_rbac_helper.all_storage_policies
+        sps = {ext_id:name for ext_id, name in sps.items()
+               if user.split("@")[0] not in name}
+        # Performing read operation on 6 random SPs.
+        entities = random.sample(list(sps.items()), 6)
+        for entity_id, name in entities:
+          op_id += 1
+          result, msg = \
+            self.sp_rbac_helper.verify_sp_get(user, PRISM_PASSWORD_WITHOUT_PAM,
+                                              entity_id=entity_id,
+                                              pc_dashboard=self.pc_dashboard)
+          STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+          self.test_result.append((op_id, op, user_permissions, name,
+                                   "PASSED" if result else "FAILED", msg))
+          all_user_result.append(result)
+          each_sp_results.append(result)
+        if all(each_sp_results):
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # CREATE WITHOUT CATEGORY
+      op = "CREATE_WITHOUT_CATEGORY"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        result, err = \
+          self.sp_rbac_helper.verify_sp_create(user, PRISM_PASSWORD_WITHOUT_PAM)
+        self.test_result.append((op_id, op, user_permissions, "",
+                                 "PASSED" if result else "FAILED", err))
+        STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # CREATE WITH CATEGORY
+      op = "CREATE_WITH_CATEGORY"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        cat_ext_id = self.sp_rbac_helper.generate_category()
+        result, err = \
+          self.sp_rbac_helper.verify_sp_create(user, PRISM_PASSWORD_WITHOUT_PAM,
+                                               category_id=cat_ext_id)
+        STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+        self.test_result.append((op_id, op, user_permissions, "",
+                                 "PASSED" if result else "FAILED", err))
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # UPDATE
+      op = "UPDATE_WITHOUT_CATEGORY"
+      each_sp_results = []
+      if op in self.test_args.get("test_operations"):
+        all_sps = self.sp_rbac_helper.all_storage_policies
+        # Taking a sample of 5 entities to update, ensuring that sp
+        # is not DSP and not self_owned (username is not in the SP name).
+        entity_ids = sample(
+          list([sp_ext_id for sp_ext_id, sp_name in all_sps.items()
+                if sp_ext_id != dsp_ext_id and
+                user.split("@")[0] not in sp_name]), 5)
+
+        # UPDATE without Category
+        for entity_id in entity_ids:
+          op_id += 1
+          sp_name = all_sps[entity_id]
+          result, err = \
+            self.sp_rbac_helper.verify_sp_update(
+              user, PRISM_PASSWORD_WITHOUT_PAM, sp_name, entity_id=entity_id)
+          STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+          self.test_result.append((op_id, op, user_permissions, sp_name,
+                                   "PASSED" if result else "FAILED", err))
+          all_user_result.append(result)
+          each_sp_results.append(result)
+        if all(each_sp_results):
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # UPDATE with Category
+      op = "UPDATE_WITH_CATEGORY"
+      each_sp_results_with_cat = []
+      if op in self.test_args.get("test_operations"):
+        all_sps = self.sp_rbac_helper.all_storage_policies
+        entity_ids = sample(
+          list([sp_ext_id for sp_ext_id, sp_name in
+                all_sps.items() if sp_ext_id != dsp_ext_id
+                and user.split("@")[0] not in sp_name]), 5)
+        for entity_id in entity_ids:
+          op_id += 1
+          sp_name = all_sps[entity_id]
+          cat_ext_id = self.sp_rbac_helper.generate_category()
+          result, err = \
+            self.sp_rbac_helper.verify_sp_update(
+              user, PRISM_PASSWORD_WITHOUT_PAM, sp_name, entity_id=entity_id,
+              category_id=cat_ext_id)
+          STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+          self.test_result.append((op_id, op, user_permissions, sp_name,
+                                   "PASSED" if result else "FAILED", err))
+          all_user_result.append(result)
+          each_sp_results_with_cat.append(result)
+        if all(each_sp_results_with_cat):
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # UPDATE DSP
+      op = "UPDATE_DSP"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        result, err = self.sp_rbac_helper.verify_sp_update(
+          user, PRISM_PASSWORD_WITHOUT_PAM, name="Default-Storage",
+          entity_id=dsp_ext_id)
+        STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+        self.test_result.append((op_id, op, user_permissions, "Default-Storage",
+                                 "PASSED" if result else "FAILED", err))
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # DELETE
+      op = "DELETE"
+      if op in self.test_args.get("test_operations"):
+        all_sps = self.sp_rbac_helper.all_storage_policies
+        # Taking a sample of 2 entities to delete except DSP.
+        entity_ids = sample(
+          [sp_ext_id for sp_ext_id, sp_name in all_sps.items()
+           if ((not self.test_args.get("delete_sp_prefix") or
+                sp_name.startswith(self.test_args.get("delete_sp_prefix")))
+               and sp_ext_id != dsp_ext_id
+               and user.split("@")[0] not in sp_name)], 2)
+        each_sp_results = []
+        for entity_id in entity_ids:
+          op_id += 1
+          result, err = self.sp_rbac_helper.verify_sp_delete(
+            user, PRISM_PASSWORD_WITHOUT_PAM, entity_id=entity_id)
+          STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+          self.test_result.append((op_id, op, user_permissions,
+                                   all_sps[entity_id],
+                                   "PASSED" if result else "FAILED", err))
+          all_user_result.append(result)
+          each_sp_results.append(result)
+        if all(each_sp_results):
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # DELETE DSP
+      op = "DELETE_DSP"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        result, err = self.sp_rbac_helper.verify_sp_delete(
+          user, PRISM_PASSWORD_WITHOUT_PAM, entity_id=dsp_ext_id)
+        STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+        self.test_result.append((op_id, op, user_permissions, "Default-Storage",
+                                 "PASSED" if result else "FAILED", err))
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+      # SELF_OWNED
+      op = "SELF_OWNED"
+      if op in self.test_args.get("test_operations"):
+        op_id += 1
+        result, err = self.sp_rbac_helper.verify_sp_self_owned(
+          user, PRISM_PASSWORD_WITHOUT_PAM)
+        STEP(f"{user} {op} TEST {'PASSED' if result else 'FAILED'}!!")
+        self.test_result.append((op_id, op, user_permissions, "",
+                                 "PASSED" if result else "FAILED", err))
+        all_user_result.append(result)
+        if result:
+          self.ops_tracker.add_ops_completed(num=1, caller_name=f"{user}_{op}")
+
+    if not all(all_user_result):
+      STEP("PLEASE CHECK '{}' for detailed report".format(
+        os.path.join(os.environ['NUTEST_LOGDIR'], 'SP_GRBAC_Failure.html')))
+    assert all(all_user_result), "One or more tests failed."
+
+  def teardown(self):
+    """
+    Clean up the grbac setup.
+    """
+    # We log the result in HTML in case of failure.
+    if self.result["result"] in ("FAILED", "ERROR"):
+      test_log_dir = os.environ['NUTEST_LOGDIR']
+      # We generate the html report in case of failure.
+      html = generate_html_report(
+        self.test_result, self.headers,
+        title="Storage Policy GRBAC Test Result",
+        popup_link_text="Error Message", popup_column_index=5,
+        value_cell_color={"PASSED": "#d1ffbd", "FAILED":"#ffcccb"})
+      with (open(os.path.join(test_log_dir, 'SP_GRBAC_Failure.html'), "w") as
+            file_handle):
+        file_handle.write(html)
+    populate_testcase_ops(self, self.ops_tracker,
+                          self.result["result"] != "PASSED",
+                          self.test_args.get("populate_result", False))
+
+    # User-role-permission info.
+    for user in (
+        self.sp_rbac_helper.grbac_helper.get_users_group(user_type=None)):
+      user_name = user.name
+      if user_name not in self.sp_rbac_helper.grbac_helper.user_role_mapping:
+        INFO(f"User '{user_name}' not assigned any role. Skipping.")
+        continue
+      user_permissions = self.sp_rbac_helper.grbac_helper.get_user_permissions(
+        user_name)
+      user_permissions_str = f"{user_name}:{user_permissions}"
+      INFO(f"{user_name} permissions: with {user_permissions_str}")
+      INFO("{} role: {}".format(
+        user_name,
+        self.sp_rbac_helper.grbac_helper.user_role_mapping[user_name][0].name))
+
+    # User ACP info.
+    acp_sdk = ACP(cluster=self.pc_clusters[0])
+    acps = [acp for acp in acp_sdk.list_acp() if
+            acp.get("authorization_policy_type") == "USER_DEFINED"]
+    INFO(
+      "ACP Info: {}".format("\n\n#".join(pprint.pformat(acp) for acp in acps)))
+
+    self.sw.cleanup(testobj=self)
+    self.sp_rbac_helper.grbac_helper.cleanup_rbac()
